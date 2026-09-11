@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="color-scheme" content="dark">
+<title>Tactics board</title>
+<style>
+  html,body{margin:0;padding:0;background:#0f1d17;color:#e9e6db;
+    -webkit-text-size-adjust:100%;overscroll-behavior:none}
+  body{padding:max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+       max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))}
+</style>
+</head>
+<body>
+<style>
+  :root{
+    --ink:#0f1d17;
+    --ink-2:#16281f;
+    --ink-3:#1e362a;
+    --line:#2c4b3b;
+    --chalk:#e9e6db;
+    --chalk-dim:#a3b0a7;
+    --accent:#f2b705;
+    --turf:#2f7d4f;
+    --turf-2:#2a7148;
+  }
+  *{box-sizing:border-box}
+  #tb, #tb *{-webkit-tap-highlight-color:transparent}
+  #tb{-webkit-text-size-adjust:100%;touch-action:manipulation}
+  #tb .chip, #tb button, #tb svg#pitch, #tb .phasebar{
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  }
+  @media(max-width:860px){
+    /* iOS zooms the page when focusing any input under 16px */
+    #tb input, #tb select, #tb textarea{font-size:16px !important}
+    #tb .btn, #tb .grp button, #tb .chip, #tb .mini{padding-top:9px;padding-bottom:9px}
+  }
+  #tb{
+    font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    color:var(--chalk);
+    background:var(--ink);
+    padding:14px;
+    border-radius:10px;
+    line-height:1.4;
+  }
+  #tb h1{
+    font-size:19px;letter-spacing:-.2px;margin:0 0 2px;font-weight:800;
+  }
+  #tb .sub{color:var(--chalk-dim);font-size:12.5px;margin:0 0 12px}
+  #tb .layout{display:flex;gap:14px;align-items:flex-start}
+  #tb .board{flex:1 1 auto;min-width:0}
+  #tb .panel{
+    flex:0 0 250px;background:var(--ink-2);border:1px solid var(--line);
+    border-radius:8px;padding:12px;max-height:78vh;overflow:auto;
+  }
+  @media(max-width:860px){
+    #tb .layout{flex-direction:column}
+    #tb .panel{flex:1 1 auto;width:100%;max-height:none}
+  }
+  #tb .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+  #tb .grp{display:flex;background:var(--ink-2);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  #tb button, #tb select, #tb input{
+    font:inherit;font-size:13px;color:var(--chalk);
+  }
+  #tb .grp button{
+    background:transparent;border:0;padding:7px 11px;cursor:pointer;
+  }
+  #tb .grp button + button{border-left:1px solid var(--line)}
+  #tb .grp button:hover{background:var(--ink-3)}
+  #tb .grp button[aria-pressed="true"]{background:var(--accent);color:#161000;font-weight:700}
+  #tb select{
+    background:var(--ink-2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;cursor:pointer;
+  }
+  #tb .btn{
+    background:var(--ink-2);border:1px solid var(--line);border-radius:7px;padding:7px 11px;cursor:pointer;
+  }
+  #tb .btn:hover{background:var(--ink-3)}
+  #tb .btn.solid{background:var(--accent);color:#161000;border-color:var(--accent);font-weight:700}
+  #tb .btn.solid:hover{filter:brightness(1.08)}
+  #tb button:focus-visible,#tb select:focus-visible,#tb input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  #tb .swatches{display:flex;gap:4px;align-items:center}
+  #tb .sw{width:20px;height:20px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+  #tb .sw[aria-pressed="true"]{border-color:var(--chalk)}
+  #tb .phasebar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  #tb .chips{display:flex;gap:6px;flex-wrap:wrap}
+  #tb .chip{
+    background:var(--ink-2);border:1px solid var(--line);color:var(--chalk);
+    border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  #tb .chip:hover{background:var(--ink-3);border-color:#3d6b53}
+  #tb .chip .k{color:var(--chalk-dim);font-size:11px}
+  #tb .chip.on{background:var(--accent);color:#161000;border-color:var(--accent);font-weight:700}
+  #tb .chip.on .k{color:rgba(0,0,0,.5)}
+  #tb .chip.add{border-style:dashed;color:var(--chalk-dim)}
+  #tb .chip.add:hover{color:var(--chalk)}
+  #tb .phaseform{display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
+  #tb .phaseform input{
+    background:var(--ink-2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;
+    font-size:13px;min-width:190px;
+  }
+  #tb .chip .dot{color:#161000;font-weight:900;margin-left:-2px}
+  #tb .chip.commit{background:var(--accent);color:#161000;border-color:var(--accent);font-weight:700}
+  #tb .phrow{border-bottom:1px solid var(--line);padding:7px 0}
+  #tb .phrow.on{box-shadow:inset 3px 0 0 var(--accent);padding-left:8px}
+  #tb .phrow input.phname{
+    width:100%;background:var(--ink);border:1px solid var(--line);border-radius:5px;
+    padding:5px 7px;font-size:12.5px;margin-bottom:5px;
+  }
+  #tb .phacts{display:flex;gap:4px;flex-wrap:wrap}
+  #tb .mini[disabled]{opacity:.35;cursor:default}
+  #tb .mini.danger:hover{background:#5a1f18;border-color:#7d2c22}
+  #tb #shareBox{
+    width:100%;background:var(--ink);border:1px solid var(--line);border-radius:6px;
+    color:var(--chalk);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;
+    padding:7px;resize:vertical;
+  }
+  #tb .phasehint{color:var(--chalk-dim);font-size:12px}
+  #tb .field{
+    background:var(--turf);border:1px solid var(--line);border-radius:8px;overflow:hidden;
+  }
+  #tb svg#pitch{display:block;width:100%;height:auto;touch-action:none;cursor:default}
+  #tb svg#pitch.arrowmode{cursor:crosshair}
+  #tb .hint{color:var(--chalk-dim);font-size:12px;margin-top:8px}
+  #tb .panel h2{font-size:13px;margin:0 0 8px;font-weight:700}
+  #tb .panel h2 span{color:var(--chalk-dim);font-weight:400}
+  #tb .row{display:flex;gap:6px;align-items:center;margin-bottom:5px}
+  #tb .num{
+    flex:0 0 34px;text-align:center;border-radius:5px;padding:5px 2px;font-weight:700;font-size:12.5px;
+    border:1px solid rgba(0,0,0,.25);background:#2a58c8;color:#fff;
+  }
+  #tb .row input.nm{
+    flex:1 1 auto;min-width:0;background:var(--ink);border:1px solid var(--line);
+    border-radius:5px;padding:6px 7px;font-size:12.5px;
+  }
+  #tb .row input.nm::placeholder{color:#6f7d74}
+  #tb .row.on input.nm{border-color:var(--accent)}
+  #tb hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+  #tb .saverow{display:flex;gap:6px;margin-bottom:8px}
+  #tb .saverow input{flex:1 1 auto;min-width:0;background:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12.5px}
+  #tb .setup{display:flex;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  #tb .setup .nmx{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #tb .setup .meta{color:var(--chalk-dim);font-size:11px}
+  #tb .mini{background:transparent;border:1px solid var(--line);border-radius:5px;padding:3px 7px;font-size:11.5px;cursor:pointer}
+  #tb .mini:hover{background:var(--ink-3)}
+  #tb .empty{color:var(--chalk-dim);font-size:12px;padding:6px 0}
+  #tb .toast{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:99;
+    background:var(--accent);color:#161000;font-weight:700;font-size:13px;
+    padding:9px 14px;border-radius:7px;box-shadow:0 6px 24px rgba(0,0,0,.4);
+  }
+</style>
+
+<div id="tb">
+  <h1>Tactics board</h1>
+  <p class="sub">Drag players and the ball. Switch to arrows to draw runs and passes.</p>
+
+  <div class="layout">
+    <div class="board">
+      <div class="bar">
+        <div class="grp" id="sizeGrp">
+          <button data-size="7" aria-pressed="false">7v7</button>
+          <button data-size="9" aria-pressed="false">9v9</button>
+          <button data-size="11" aria-pressed="true">11v11</button>
+        </div>
+
+        <select id="preset" title="Formation"></select>
+
+        <select id="view" title="Field view">
+          <option value="full">Full field</option>
+          <option value="att">Attacking half</option>
+          <option value="def">Defending half</option>
+        </select>
+
+        <div class="grp" id="modeGrp">
+          <button data-mode="move" aria-pressed="true">Move</button>
+          <button data-mode="arrow" aria-pressed="false">Arrows</button>
+        </div>
+
+        <select id="arrowType" title="Arrow type">
+          <option value="run">Run</option>
+          <option value="pass">Pass</option>
+          <option value="dribble">Dribble</option>
+        </select>
+
+        <button class="btn" id="oppBtn" aria-pressed="true">Opponents on</button>
+        <select id="labels" title="Player labels">
+          <option value="number">Numbers</option>
+          <option value="name">Names</option>
+          <option value="both">Numbers + names</option>
+        </select>
+      </div>
+
+      <div class="phasebar">
+        <div id="phaseChips" class="chips"></div>
+        <button class="chip add" id="addPhase">+ Save this shape</button>
+      </div>
+      <div class="phaseform" id="phaseForm" hidden>
+        <input id="phaseName" list="phaseSuggest" placeholder="Name this shape" maxlength="28">
+        <datalist id="phaseSuggest">
+          <option>Kickoff</option><option>Goal kick</option><option>Attacking shape</option>
+          <option>High press</option><option>Low block</option><option>Defending corner</option>
+          <option>Attacking corner</option><option>Throw-in</option><option>Counter</option>
+        </datalist>
+        <button class="btn solid" id="phaseSave">Save shape</button>
+        <button class="btn" id="phaseCancel">Cancel</button>
+      </div>
+
+      <div class="field"><svg id="pitch" xmlns="http://www.w3.org/2000/svg"></svg></div>
+
+      <div class="bar" style="margin-top:10px">
+        <button class="btn solid" id="playBtn">Play</button>
+        <select id="speed" title="Playback speed">
+          <option value="2200">Slow</option>
+          <option value="1500" selected>Normal</option>
+          <option value="900">Fast</option>
+        </select>
+        <select id="timing" title="Playback order">
+          <option value="together">All at once</option>
+          <option value="order">In drawn order</option>
+        </select>
+        <button class="btn" id="bakeBtn" style="display:none">Keep end positions</button>
+        <button class="btn" id="exportBtn">Save image</button>
+        <button class="btn" id="undoBtn">Undo arrow</button>
+        <button class="btn" id="clearBtn">Clear arrows</button>
+        <button class="btn" id="resetBtn">Reset formation</button>
+        <button class="btn" id="gatherBtn" style="display:none">Bring players into view</button>
+        <div class="swatches" style="margin-left:auto">
+          <span style="font-size:12px;color:var(--chalk-dim);margin-right:2px">Kit</span>
+          <span id="homeSw"></span>
+        </div>
+      </div>
+      <p class="hint" id="hint"></p>
+    </div>
+
+    <aside class="panel">
+      <h2>Starting lineup <span id="rosterCount"></span></h2>
+      <div id="roster"></div>
+      <hr>
+      <h2>Phases <span id="phaseCount"></span> <button class="mini" id="undoPhase" style="display:none;float:right">Undo</button></h2>
+      <div id="phaseList"></div>
+      <hr>
+      <h2>Share game plan</h2>
+      <div class="phacts" style="margin-bottom:8px">
+        <button class="mini" id="exportBtn2">Export</button>
+        <button class="mini" id="importToggle">Import</button>
+        <button class="mini" id="downloadJson">Download .json</button>
+      </div>
+      <div id="shareWrap" hidden>
+        <textarea id="shareBox" rows="5" placeholder="Paste a game plan code here, then choose how to load it."></textarea>
+        <div class="phacts" style="margin-top:6px">
+          <button class="mini" id="copyShare">Copy code</button>
+          <button class="mini" id="mergeIn">Merge into mine</button>
+          <button class="mini danger" id="replaceIn">Replace mine</button>
+        </div>
+      </div>
+      <p class="empty" id="shareNote">Export gives you a code to paste, or a file to send.</p>
+      <hr>
+      <h2>Saved setups</h2>
+      <div class="saverow">
+        <input id="setupName" placeholder="e.g. Home vs Timpview" maxlength="40">
+        <button class="btn" id="saveBtn">Save</button>
+      </div>
+      <div id="setups"></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+  const FIELDS = {
+    7:  {L:55, W:37,  paD:8,    paW:22,    gaD:0,   gaW:0,     pen:7,  arcR:6,    cc:6,    goalW:5.5,  corner:0.8, buildOut:true},
+    9:  {L:73, W:46,  paD:12,   paW:32,    gaD:5,   gaW:16,    pen:9,  arcR:7.5,  cc:7,    goalW:6.4,  corner:1,   buildOut:true},
+    11: {L:105,W:68,  paD:16.5, paW:40.32, gaD:5.5, gaW:18.32, pen:11, arcR:9.15, cc:9.15, goalW:7.32, corner:1,   buildOut:false}
+  };
+  const PRESETS = {
+    7:  {'2-3-1':[2,3,1],'3-2-1':[3,2,1],'2-1-3':[2,1,3],'3-1-2':[3,1,2],'1-3-2':[1,3,2],'2-2-2':[2,2,2]},
+    9:  {'3-2-3':[3,2,3],'3-3-2':[3,3,2],'2-3-3':[2,3,3],'3-4-1':[3,4,1],'2-4-2':[2,4,2],'3-1-3-1':[3,1,3,1]},
+    11: {'4-3-3':[4,3,3],'4-4-2':[4,4,2],'4-2-3-1':[4,2,3,1],'3-5-2':[3,5,2],'4-4-1-1':[4,4,1,1],'5-3-2':[5,3,2],'3-4-3':[3,4,3],'4-1-4-1':[4,1,4,1]}
+  };
+  const KITS = ['#2a58c8','#c8341f','#e8e8e8','#151515','#128a5e','#7b2fbe'];
+  const AWAY_KIT = '#d8532a';
+
+  const state = {
+    size: 11,
+    preset: '4-3-3',
+    view: 'full',
+    mode: 'move',
+    arrowType: 'run',
+    showOpp: true,
+    labels: 'number',
+    homeKit: KITS[0],
+    home: [], away: [],
+    ball: {x:0,y:0},
+    arrows: [],
+    selected: null
+  };
+  let store = {rosters:{7:[],9:[],11:[]}, setups:[], phases:{7:[],9:[],11:[]}};
+  let anim = null, playing = false, played = false, rafId = null;
+
+  const $ = s => document.querySelector(s);
+  const svg = $('#pitch');
+  const F = () => FIELDS[state.size];
+
+  /* ---------- geometry helpers ---------- */
+  function unit(){ return F().L/58; }           // player radius, keeps apparent size constant
+  function lw(){ return F().L/260; }            // line width
+
+  function buildTeam(side, lines){
+    const f = F(), out = [];
+    const dir = side === 'home' ? 1 : -1;
+    const gx = side === 'home' ? f.L*0.055 : f.L*0.945;
+    out.push({num:1, name:'', x:gx, y:f.W/2});
+    const startX = side === 'home' ? f.L*0.21 : f.L*0.79;
+    const endX   = side === 'home' ? f.L*0.78 : f.L*0.22;
+    let n = 2;
+    lines.forEach((count, i) => {
+      const t = lines.length === 1 ? 0.45 : i/(lines.length-1);
+      const x = startX + (endX-startX)*t;
+      for(let j=0;j<count;j++){
+        let y = f.W*((j+1)/(count+1));
+        if(count>=4 && (j===0 || j===count-1)) y = j===0 ? f.W*0.10 : f.W*0.90;
+        out.push({num:n++, name:'', x, y});
+      }
+    });
+    void dir;
+    return out;
+  }
+
+  function applyPreset(keepNames){
+    const lines = PRESETS[state.size][state.preset];
+    const oldHome = state.home, oldAway = state.away;
+    state.home = buildTeam('home', lines);
+    state.away = buildTeam('away', lines);
+    if(keepNames){
+      state.home.forEach((p,i)=>{ if(oldHome[i]){ p.name = oldHome[i].name; p.num = oldHome[i].num; }});
+      state.away.forEach((p,i)=>{ if(oldAway[i]){ p.name = oldAway[i].name; p.num = oldAway[i].num; }});
+    } else {
+      applyRoster();
+    }
+    state.ball = {x:F().L/2, y:F().W/2};
+  }
+
+  function applyRoster(){
+    const r = store.rosters[state.size] || [];
+    state.home.forEach((p,i)=>{ if(r[i]){ p.name = r[i].name || ''; p.num = r[i].num ?? p.num; }});
+  }
+
+  function viewBox(){
+    const f = F(), m = f.L*0.035;
+    if(state.view === 'att') return `${f.L/2 - m} ${-m} ${f.L/2 + 2*m} ${f.W + 2*m}`;
+    if(state.view === 'def') return `${-m} ${-m} ${f.L/2 + 2*m} ${f.W + 2*m}`;
+    return `${-m} ${-m} ${f.L + 2*m} ${f.W + 2*m}`;
+  }
+  function bounds(){
+    const f = F();
+    if(state.view === 'att') return {x0:f.L/2, x1:f.L, y0:0, y1:f.W};
+    if(state.view === 'def') return {x0:0, x1:f.L/2, y0:0, y1:f.W};
+    return {x0:0, x1:f.L, y0:0, y1:f.W};
+  }
+  const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+  /* ---------- pitch markings ---------- */
+  function markings(){
+    const f = F(), s = [], w = lw(), col = 'rgba(255,255,255,.82)';
+    const stroke = `stroke="${col}" stroke-width="${w}" fill="none"`;
+    // mown stripes
+    const bands = 10, bw = f.L/bands;
+    for(let i=0;i<bands;i++){
+      if(i%2===0) s.push(`<rect x="${i*bw}" y="0" width="${bw}" height="${f.W}" fill="rgba(255,255,255,.035)"/>`);
+    }
+    s.push(`<rect x="0" y="0" width="${f.L}" height="${f.W}" ${stroke}/>`);
+    s.push(`<line x1="${f.L/2}" y1="0" x2="${f.L/2}" y2="${f.W}" ${stroke}/>`);
+    s.push(`<circle cx="${f.L/2}" cy="${f.W/2}" r="${f.cc}" ${stroke}/>`);
+    s.push(`<circle cx="${f.L/2}" cy="${f.W/2}" r="${w*1.6}" fill="${col}"/>`);
+    [0,1].forEach(side=>{
+      const sx = side === 0 ? 0 : f.L - f.paD;
+      s.push(`<rect x="${sx}" y="${(f.W-f.paW)/2}" width="${f.paD}" height="${f.paW}" ${stroke}/>`);
+      if(f.gaD>0){
+        const gx = side === 0 ? 0 : f.L - f.gaD;
+        s.push(`<rect x="${gx}" y="${(f.W-f.gaW)/2}" width="${f.gaD}" height="${f.gaW}" ${stroke}/>`);
+      }
+      const px = side === 0 ? f.pen : f.L - f.pen;
+      s.push(`<circle cx="${px}" cy="${f.W/2}" r="${w*1.6}" fill="${col}"/>`);
+      const dx = Math.abs(f.paD - f.pen);
+      if(f.arcR > dx){
+        const dy = Math.sqrt(f.arcR*f.arcR - dx*dx);
+        const ax = side === 0 ? f.paD : f.L - f.paD;
+        s.push(side === 0
+          ? `<path d="M ${ax} ${f.W/2-dy} A ${f.arcR} ${f.arcR} 0 0 1 ${ax} ${f.W/2+dy}" ${stroke}/>`
+          : `<path d="M ${ax} ${f.W/2+dy} A ${f.arcR} ${f.arcR} 0 0 1 ${ax} ${f.W/2-dy}" ${stroke}/>`);
+      }
+      // goal
+      const gw = f.goalW, gd = f.L*0.018;
+      const gxx = side === 0 ? -gd : f.L;
+      s.push(`<rect x="${gxx}" y="${(f.W-gw)/2}" width="${gd}" height="${gw}" stroke="${col}" stroke-width="${w}" fill="rgba(255,255,255,.12)"/>`);
+      // build-out line (youth)
+      if(f.buildOut){
+        const bx = side === 0 ? (f.paD + f.L/2)/2 : f.L - (f.paD + f.L/2)/2;
+        s.push(`<line x1="${bx}" y1="0" x2="${bx}" y2="${f.W}" stroke="rgba(255,255,255,.45)" stroke-width="${w}" stroke-dasharray="${w*4} ${w*4}"/>`);
+      }
+    });
+    const c = f.corner;
+    s.push(`<path d="M ${c} 0 A ${c} ${c} 0 0 1 0 ${c}" ${stroke}/>`);
+    s.push(`<path d="M 0 ${f.W-c} A ${c} ${c} 0 0 1 ${c} ${f.W}" ${stroke}/>`);
+    s.push(`<path d="M ${f.L-c} 0 A ${c} ${c} 0 0 0 ${f.L} ${c}" ${stroke}/>`);
+    s.push(`<path d="M ${f.L} ${f.W-c} A ${c} ${c} 0 0 0 ${f.L-c} ${f.W}" ${stroke}/>`);
+    return s.join('');
+  }
+
+  /* ---------- arrows ---------- */
+  // An arrow is stored as an anchor (a player, the ball, or a fixed point)
+  // plus an offset, so it travels with whatever it is attached to.
+  function ownerPos(a, snap){
+    if(!a.owner) return {x:a.ax, y:a.ay};
+    const src = snap || state;
+    if(a.owner.kind === 'ball') return {x:src.ball.x, y:src.ball.y};
+    const p = src[a.owner.team] && src[a.owner.team][a.owner.idx];
+    return p ? {x:p.x, y:p.y} : {x:a.ax || 0, y:a.ay || 0};
+  }
+  function ends(a){
+    const p = ownerPos(a, null);
+    const x2 = p.x + a.dx, y2 = p.y + a.dy;
+    let x1 = p.x, y1 = p.y;
+    if(a.owner){
+      const len = Math.hypot(a.dx, a.dy) || 1, off = unit()*1.1;
+      if(len > off*1.4){ x1 = p.x + a.dx/len*off; y1 = p.y + a.dy/len*off; }
+    }
+    return {x1, y1, x2, y2};
+  }
+  function normalizeArrow(a){
+    if(a.dx === undefined && a.x1 !== undefined){   // upgrade older saved setups
+      a.owner = null; a.ax = a.x1; a.ay = a.y1; a.dx = a.x2-a.x1; a.dy = a.y2-a.y1;
+    }
+    return a;
+  }
+  function arrowPath(e, type){
+    const dx = e.x2-e.x1, dy = e.y2-e.y1, len = Math.hypot(dx,dy) || 1;
+    if(type !== 'dribble') return `M ${e.x1} ${e.y1} L ${e.x2} ${e.y2}`;
+    const px = -dy/len, py = dx/len;
+    const amp = unit()*0.42, waves = Math.max(2, Math.round(len/(unit()*1.5)));
+    let d = `M ${e.x1} ${e.y1}`;
+    for(let i=0;i<waves;i++){
+      const t1 = (i+0.5)/waves, t2 = (i+1)/waves, sgn = i%2 ? -1 : 1;
+      d += ` Q ${e.x1+dx*t1 + px*amp*sgn} ${e.y1+dy*t1 + py*amp*sgn} ${e.x1+dx*t2} ${e.y1+dy*t2}`;
+    }
+    return d;
+  }
+  function arrowsSVG(){
+    const w = lw()*1.9;
+    return state.arrows.map((a,i)=>{
+      const e = ends(a);
+      const d = arrowPath(e, a.type);
+      const dash = a.type === 'pass' ? `stroke-dasharray="${w*2.2} ${w*1.8}"` : '';
+      const tag = a.owner ? `<circle cx="${e.x1}" cy="${e.y1}" r="${w*1.1}" fill="${a.color}"/>` : '';
+      return `<g data-arrow="${i}" style="cursor:pointer">
+        <path d="${d}" stroke="transparent" stroke-width="${w*4}" fill="none"/>
+        <path d="${d}" stroke="${a.color}" stroke-width="${w}" fill="none" ${dash}
+              stroke-linecap="round" marker-end="url(#ah-${a.color.replace('#','')})"/>${tag}
+      </g>`;
+    }).join('');
+  }
+  function markerDefs(){
+    const cols = new Set(state.arrows.map(a=>a.color));
+    cols.add('#ffffff'); cols.add(AWAY_KIT);
+    return [...cols].map(c=>`<marker id="ah-${c.replace('#','')}" viewBox="0 0 10 10" refX="7.5" refY="5"
+      markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="${c}"/></marker>`).join('');
+  }
+
+  /* ---------- players + ball ---------- */
+  function contrast(hex){
+    const c = hex.replace('#','');
+    const r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16);
+    return (0.299*r + 0.587*g + 0.114*b) > 150 ? '#141414' : '#ffffff';
+  }
+  function playerSVG(p, team, idx){
+    const r = unit(), kit = team === 'home' ? state.homeKit : AWAY_KIT;
+    const fg = contrast(kit);
+    const sel = state.selected && state.selected.team === team && state.selected.idx === idx;
+    const showNum = state.labels !== 'name';
+    const showName = state.labels !== 'number' && p.name;
+    const label = state.labels === 'name' && p.name ? p.name : '';
+    let inner = '';
+    if(showNum) inner = `<text x="0" y="${r*0.38}" text-anchor="middle" font-size="${r*1.15}" font-weight="800" fill="${fg}">${p.num}</text>`;
+    else if(label) inner = `<text x="0" y="${r*0.3}" text-anchor="middle" font-size="${r*0.72}" font-weight="700" fill="${fg}">${esc(label.slice(0,3))}</text>`;
+    const under = (showName && state.labels === 'both')
+      ? `<text x="0" y="${r*2.15}" text-anchor="middle" font-size="${r*0.82}" font-weight="700" fill="#fff"
+           stroke="rgba(0,0,0,.55)" stroke-width="${r*0.14}" paint-order="stroke">${esc(p.name)}</text>` : '';
+    const fullName = (state.labels === 'name' && p.name)
+      ? `<text x="0" y="${r*2.15}" text-anchor="middle" font-size="${r*0.82}" font-weight="700" fill="#fff"
+           stroke="rgba(0,0,0,.55)" stroke-width="${r*0.14}" paint-order="stroke">${esc(p.name)}</text>` : '';
+    return `<g data-player="${idx}" data-team="${team}" transform="translate(${p.x} ${p.y})" style="cursor:grab">
+      <circle r="${r}" fill="rgba(0,0,0,.3)" cy="${r*0.16}"/>
+      <circle r="${r}" fill="${kit}" stroke="${sel ? '#f2b705' : 'rgba(0,0,0,.45)'}" stroke-width="${sel ? r*0.22 : r*0.1}"/>
+      ${inner}${under}${fullName}
+    </g>`;
+  }
+  function ballSVG(){
+    const r = unit()*0.62, b = state.ball;
+    const pent = (cx,cy,rad,rot) => {
+      let d='';
+      for(let i=0;i<5;i++){
+        const a = rot + i*2*Math.PI/5;
+        d += (i?'L':'M') + (cx+rad*Math.cos(a)) + ' ' + (cy+rad*Math.sin(a)) + ' ';
+      }
+      return `<path d="${d}z" fill="#151515"/>`;
+    };
+    let outer = '';
+    for(let i=0;i<5;i++){
+      const a = -Math.PI/2 + i*2*Math.PI/5 + Math.PI/5;
+      outer += pent(r*0.78*Math.cos(a), r*0.78*Math.sin(a), r*0.3, a+Math.PI/5);
+    }
+    return `<g data-ball="1" transform="translate(${b.x} ${b.y})" style="cursor:grab">
+      <circle r="${r*1.12}" fill="rgba(0,0,0,.35)" cy="${r*0.2}"/>
+      <circle r="${r}" fill="#f7f7f4" stroke="#151515" stroke-width="${r*0.12}"/>
+      ${pent(0,0,r*0.38,-Math.PI/2)}${outer}
+    </g>`;
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  /* ---------- render ---------- */
+  function render(){
+    svg.setAttribute('viewBox', viewBox());
+    svg.classList.toggle('arrowmode', state.mode === 'arrow');
+    const away = state.showOpp ? state.away.map((p,i)=>playerSVG(p,'away',i)).join('') : '';
+    svg.innerHTML =
+      `<defs>${markerDefs()}</defs>` +
+      `<g>${markings()}</g>` +
+      `<g id="arrowLayer">${arrowsSVG()}</g>` +
+      `<g>${away}${state.home.map((p,i)=>playerSVG(p,'home',i)).join('')}</g>` +
+      ballSVG() +
+      `<g id="temp"></g>`;
+    if(anim) paintPositions();
+  }
+
+  function renderRoster(){
+    const el = $('#roster');
+    $('#rosterCount').textContent = `(${state.size})`;
+    el.innerHTML = state.home.map((p,i)=>`
+      <div class="row${state.selected && state.selected.team==='home' && state.selected.idx===i ? ' on':''}" data-i="${i}">
+        <input class="num" value="${esc(p.num)}" maxlength="2" inputmode="numeric" aria-label="Number"
+               style="background:${state.homeKit};color:${contrast(state.homeKit)}">
+        <input class="nm" value="${esc(p.name)}" placeholder="${i===0?'Goalkeeper':'Player '+(i+1)}" aria-label="Name">
+      </div>`).join('');
+    el.querySelectorAll('.row').forEach(row=>{
+      const i = +row.dataset.i;
+      row.querySelector('.nm').addEventListener('input', e=>{ state.home[i].name = e.target.value; saveRoster(); render(); });
+      row.querySelector('.num').addEventListener('input', e=>{ state.home[i].num = e.target.value.replace(/\D/g,'').slice(0,2); saveRoster(); render(); });
+      row.addEventListener('focusin', ()=>{ state.selected = {team:'home', idx:i}; render(); highlightRow(i); });
+    });
+  }
+  function highlightRow(i){
+    document.querySelectorAll('#tb .row').forEach(r => r.classList.toggle('on', +r.dataset.i === i));
+  }
+
+  /* ---------- pointer interaction ---------- */
+  function toField(e){
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const m = svg.getScreenCTM();
+    return m ? pt.matrixTransform(m.inverse()) : {x:0,y:0};
+  }
+
+  function nearestAnchor(p){
+    const grab = unit()*1.8;
+    let best = null, bestD = grab;
+    const test = (pos, owner)=>{
+      const dist = Math.hypot(pos.x-p.x, pos.y-p.y);
+      if(dist < bestD){ bestD = dist; best = owner; }
+    };
+    test(state.ball, {kind:'ball'});
+    state.home.forEach((pl,i)=> test(pl, {kind:'player', team:'home', idx:i}));
+    if(state.showOpp) state.away.forEach((pl,i)=> test(pl, {kind:'player', team:'away', idx:i}));
+    return best;
+  }
+
+  function grab(e){
+    try{ svg.setPointerCapture(e.pointerId); }
+    catch(err){ /* Safari refuses pointer capture on SVG; events still arrive */ }
+  }
+  let drag = null, drawing = null;
+  svg.addEventListener('pointerdown', e=>{
+    if(playing || shifting) return;
+    if(played){ clearPlay(); toast('Back to the starting shape'); return; }
+    const p = toField(e);
+    const arrowEl = e.target.closest('[data-arrow]');
+    if(arrowEl && state.mode === 'arrow'){
+      state.arrows.splice(+arrowEl.dataset.arrow, 1); render(); return;
+    }
+    if(state.mode === 'arrow'){
+      drawing = {x1:p.x, y1:p.y, x2:p.x, y2:p.y, type:state.arrowType,
+                 owner: nearestAnchor(p),
+                 color: state.arrowType === 'pass' ? '#ffffff' : (state.homeKit === '#e8e8e8' ? '#151515' : '#ffffff')};
+      grab(e); return;
+    }
+    const ballEl = e.target.closest('[data-ball]');
+    if(ballEl){ drag = {kind:'ball'}; markDirty(); svg.setPointerCapture(e.pointerId); return; }
+    const pl = e.target.closest('[data-player]');
+    if(pl){
+      const team = pl.dataset.team, idx = +pl.dataset.player;
+      drag = {kind:'player', team, idx, el:pl, moved:false}; markDirty();
+      state.selected = {team, idx};
+      if(team === 'home') highlightRow(idx);
+      grab(e);
+      pl.style.cursor = 'grabbing';
+      render();
+    }
+  });
+
+  svg.addEventListener('pointermove', e=>{
+    if(!drag && !drawing) return;
+    const p = toField(e), b = bounds();
+    const x = clamp(p.x, b.x0, b.x1), y = clamp(p.y, b.y0, b.y1);
+    if(drawing){
+      drawing.x2 = x; drawing.y2 = y;
+      const w = lw()*1.9;
+      const dash = drawing.type === 'pass' ? `stroke-dasharray="${w*2.2} ${w*1.8}"` : '';
+      svg.querySelector('#temp').innerHTML =
+        `<path d="${arrowPath(drawing, drawing.type)}" stroke="${drawing.color}" stroke-width="${w}" fill="none" ${dash}
+               stroke-linecap="round" opacity=".9" marker-end="url(#ah-${drawing.color.replace('#','')})"/>`;
+      return;
+    }
+    if(drag.kind === 'ball'){
+      state.ball.x = x; state.ball.y = y;
+      svg.querySelector('[data-ball]').setAttribute('transform',`translate(${x} ${y})`);
+    } else {
+      const pl = state[drag.team][drag.idx];
+      pl.x = x; pl.y = y; drag.moved = true;
+      drag.el.setAttribute('transform',`translate(${x} ${y})`);
+    }
+  });
+
+  function endPointer(e){
+    if(drawing){
+      const len = Math.hypot(drawing.x2-drawing.x1, drawing.y2-drawing.y1);
+      if(len > unit()*1.2){
+        const a = {type:drawing.type, color:drawing.color, owner:drawing.owner || null};
+        const base = a.owner ? ownerPos(a, null) : {x:drawing.x1, y:drawing.y1};
+        a.ax = base.x; a.ay = base.y;
+        a.dx = drawing.x2 - base.x; a.dy = drawing.y2 - base.y;
+        state.arrows.push(a);
+      }
+      drawing = null; render();
+    }
+    if(drag){
+      if(drag.el) drag.el.style.cursor = 'grab';
+      drag = null; render();
+    }
+    try{
+      if(e && e.pointerId != null && svg.hasPointerCapture && svg.hasPointerCapture(e.pointerId))
+        svg.releasePointerCapture(e.pointerId);
+    }catch(err){ /* Safari refuses pointer capture on SVG; harmless */ }
+  }
+  svg.addEventListener('pointerup', endPointer);
+  svg.addEventListener('pointercancel', endPointer);
+
+  /* ---------- playback ----------
+     Playback never edits the real positions. It animates a throwaway overlay
+     (`anim`), so arrows stay anchored to the starting shape no matter how many
+     times you press Play. */
+  const ease = t => t<0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+  const easeOut = t => 1 - Math.pow(1-t, 2.4);
+
+  function clearPlay(){
+    if(rafId) cancelAnimationFrame(rafId);
+    rafId = null; playing = false; played = false; anim = null;
+    const btn = $('#playBtn');
+    if(btn){ btn.textContent = 'Play'; btn.classList.add('solid'); }
+    const bake = $('#bakeBtn'); if(bake) bake.style.display = 'none';
+    render();
+  }
+
+  function play(){
+    if(!state.arrows.length){ toast('Draw an arrow first'); return; }
+    if(playing) return;
+    anim = {
+      home: state.home.map(p=>({x:p.x, y:p.y})),
+      away: state.away.map(p=>({x:p.x, y:p.y})),
+      ball: {x:state.ball.x, y:state.ball.y}
+    };
+
+    const D = +$('#speed').value;
+    const sequential = $('#timing').value === 'order';
+    const segs = state.arrows.map((a,i)=>({
+      a, start: sequential ? i*D*0.75 : 0, dur: D, inited: false, mover: null
+    }));
+    const total = segs.reduce((m,s)=>Math.max(m, s.start+s.dur), 0) + 250;
+
+    function initSeg(s){
+      s.inited = true;
+      const e = ends(s.a);
+      const head = {x:e.x2, y:e.y2}, tail = {x:e.x1, y:e.y1};
+      const near = (p,q,r)=> Math.hypot(p.x-q.x, p.y-q.y) < r;
+      if(s.a.type === 'pass'){
+        if((s.a.owner && s.a.owner.kind === 'ball') || near(anim.ball, tail, unit()*3))
+          s.mover = {ball:{from:{...anim.ball}, to:head}};
+        return;
+      }
+      if(s.a.owner && s.a.owner.kind === 'player'){
+        const ref = anim[s.a.owner.team][s.a.owner.idx];
+        const from = {x:ref.x, y:ref.y};
+        s.mover = {player:{ref, from, to:head}};
+        if(s.a.type === 'dribble' && near(anim.ball, from, unit()*3)){
+          const off = {x:anim.ball.x-from.x, y:anim.ball.y-from.y};
+          s.mover.ball = {from:{...anim.ball}, to:{x:head.x+off.x, y:head.y+off.y}};
+        }
+      } else if(s.a.owner && s.a.owner.kind === 'ball'){
+        s.mover = {ball:{from:{...anim.ball}, to:head}};
+      }
+    }
+
+    playing = true; played = false;
+    $('#playBtn').textContent = 'Playing…';
+    $('#playBtn').classList.remove('solid');
+    render();
+
+    const t0 = performance.now();
+    (function step(now){
+      const el = now - t0;
+      segs.forEach(s=>{
+        if(el < s.start) return;
+        if(!s.inited) initSeg(s);
+        if(!s.mover) return;
+        const raw = Math.min(1, (el - s.start)/s.dur);
+        if(s.mover.player){
+          const m = s.mover.player, t = ease(raw);
+          m.ref.x = m.from.x + (m.to.x-m.from.x)*t;
+          m.ref.y = m.from.y + (m.to.y-m.from.y)*t;
+        }
+        if(s.mover.ball){
+          const m = s.mover.ball, t = s.a.type === 'pass' ? easeOut(raw) : ease(raw);
+          anim.ball.x = m.from.x + (m.to.x-m.from.x)*t;
+          anim.ball.y = m.from.y + (m.to.y-m.from.y)*t;
+        }
+      });
+      paintPositions();
+      if(el < total) rafId = requestAnimationFrame(step);
+      else {
+        playing = false; played = true; rafId = null;
+        $('#playBtn').textContent = 'Reset play';
+        $('#bakeBtn').style.display = '';
+        render();
+      }
+    })(t0);
+  }
+
+  // Commit the finished play: end positions become the new starting shape.
+  function bakeEndPositions(){
+    if(!anim) return;
+    state.home.forEach((p,i)=>{ p.x = anim.home[i].x; p.y = anim.home[i].y; });
+    state.away.forEach((p,i)=>{ p.x = anim.away[i].x; p.y = anim.away[i].y; });
+    state.ball.x = anim.ball.x; state.ball.y = anim.ball.y;
+    state.arrows = [];
+    clearPlay();
+    toast('End positions kept — draw the next phase');
+  }
+
+  function paintPositions(){
+    const src = anim || state;
+    svg.querySelectorAll('[data-player]').forEach(g=>{
+      const p = src[g.dataset.team][+g.dataset.player];
+      if(p) g.setAttribute('transform', `translate(${p.x} ${p.y})`);
+    });
+    const b = svg.querySelector('[data-ball]');
+    if(b) b.setAttribute('transform', `translate(${src.ball.x} ${src.ball.y})`);
+  }
+
+  /* ---------- phases ----------
+     A phase is a named set of positions for the current team size. Applying one
+     slides everyone into that shape; names and numbers are untouched. */
+  let shifting = false, shiftRaf = null, activePhase = null, phaseDirty = false;
+  const phases = () => (store.phases[state.size] = store.phases[state.size] || []);
+
+  function capture(){
+    return {
+      home: state.home.map(p=>({x:p.x, y:p.y})),
+      away: state.away.map(p=>({x:p.x, y:p.y})),
+      ball: {x:state.ball.x, y:state.ball.y}
+    };
+  }
+
+  function applyPhase(ph){
+    clearPlay();
+    if(shiftRaf) cancelAnimationFrame(shiftRaf);
+    activePhase = ph.id; phaseDirty = false;
+    const from = capture();
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dur = reduce ? 0 : 620;
+    const put = t => {
+      state.home.forEach((p,i)=>{ const a = from.home[i], b = ph.home[i]; if(!a||!b) return;
+        p.x = a.x + (b.x-a.x)*t; p.y = a.y + (b.y-a.y)*t; });
+      state.away.forEach((p,i)=>{ const a = from.away[i], b = ph.away[i]; if(!a||!b) return;
+        p.x = a.x + (b.x-a.x)*t; p.y = a.y + (b.y-a.y)*t; });
+      state.ball.x = from.ball.x + (ph.ball.x-from.ball.x)*t;
+      state.ball.y = from.ball.y + (ph.ball.y-from.ball.y)*t;
+    };
+    if(!dur){ put(1); render(); renderPhases(); return; }
+    shifting = true;
+    const t0 = performance.now();
+    (function step(now){
+      const t = ease(Math.min(1, (now-t0)/dur));
+      put(t);
+      paintPositions();
+      const layer = svg.querySelector('#arrowLayer');
+      if(layer) layer.innerHTML = arrowsSVG();
+      if(t < 1) shiftRaf = requestAnimationFrame(step);
+      else { shifting = false; shiftRaf = null; render(); }
+    })(t0);
+    renderPhases();
+  }
+
+  function savePhase(name){
+    const p = capture();
+    pushUndo();
+    phases().push({id:String(Date.now()), name, home:p.home, away:p.away, ball:p.ball});
+    activePhase = phases()[phases().length-1].id;
+    phaseDirty = false;
+    persist(); renderPhases();
+    toast('Saved ' + name);
+  }
+
+  // One level of undo covering every destructive phase edit.
+  let undoStack = null;
+  function pushUndo(){ undoStack = JSON.stringify(phases()); }
+  function undoPhases(){
+    if(!undoStack) return;
+    store.phases[state.size] = JSON.parse(undoStack);
+    undoStack = null; phaseDirty = false;
+    persist(); renderPhases(); toast('Change undone');
+  }
+
+  function markDirty(){
+    if(activePhase && !phaseDirty){ phaseDirty = true; renderPhases(); }
+  }
+
+  function commitPhase(id){
+    const i = phases().findIndex(x=>x.id===id); if(i<0) return;
+    pushUndo();
+    const p = capture();
+    Object.assign(phases()[i], {home:p.home, away:p.away, ball:p.ball});
+    phaseDirty = false;
+    persist(); renderPhases();
+    toast('Saved changes to ' + phases()[i].name);
+  }
+
+  function renderPhases(){
+    const list = phases();
+    const current = list.find(p=>p.id===activePhase);
+
+    let bar = list.length
+      ? list.map((ph,i)=>`<button class="chip${ph.id===activePhase?' on':''}" data-id="${ph.id}">
+          ${esc(ph.name)}${ph.id===activePhase && phaseDirty ? '<span class="dot" title="Unsaved changes">•</span>' : ''}${i<9?`<span class="k">${i+1}</span>`:''}</button>`).join('')
+      : `<span class="phasehint">Arrange a shape, then save it as a phase — kickoff, goal kick, high press.</span>`;
+    if(current && phaseDirty){
+      bar += `<button class="chip commit" id="commitChip">Save changes to ${esc(current.name)}</button>
+              <button class="chip" id="discardChip">Discard</button>`;
+    }
+    $('#phaseChips').innerHTML = bar;
+
+    $('#phaseCount').textContent = `(${state.size}v${state.size})`;
+    $('#undoPhase').style.display = undoStack ? '' : 'none';
+
+    const panel = $('#phaseList');
+    panel.innerHTML = list.length
+      ? list.map((ph,i)=>`<div class="phrow${ph.id===activePhase?' on':''}" data-id="${ph.id}">
+          <input class="phname" value="${esc(ph.name)}" maxlength="28" aria-label="Phase name">
+          <div class="phacts">
+            <button class="mini" data-act="apply">Apply</button>
+            <button class="mini" data-act="update" title="Overwrite with the shape currently on the board">Save board here</button>
+            <button class="mini" data-act="dup">Duplicate</button>
+            <button class="mini" data-act="up" ${i===0?'disabled':''} aria-label="Move up">↑</button>
+            <button class="mini" data-act="down" ${i===list.length-1?'disabled':''} aria-label="Move down">↓</button>
+            <button class="mini danger" data-act="del">Delete</button>
+          </div>
+        </div>`).join('')
+      : '<p class="empty">No phases for this team size yet.</p>';
+
+    $('#phaseChips').querySelectorAll('.chip[data-id]').forEach(c=>c.addEventListener('click', ()=>{
+      const ph = phases().find(x=>x.id===c.dataset.id); if(ph) applyPhase(ph);
+    }));
+    const commit = $('#commitChip');
+    if(commit) commit.addEventListener('click', ()=> commitPhase(activePhase));
+    const discard = $('#discardChip');
+    if(discard) discard.addEventListener('click', ()=>{
+      const ph = phases().find(x=>x.id===activePhase); if(ph) applyPhase(ph);
+    });
+
+    panel.querySelectorAll('.phrow').forEach(row=>{
+      const id = row.dataset.id;
+      row.querySelector('.phname').addEventListener('change', e=>{
+        const ph = phases().find(x=>x.id===id); if(!ph) return;
+        const v = e.target.value.trim();
+        if(!v || v === ph.name){ renderPhases(); return; }
+        pushUndo(); ph.name = v; persist(); renderPhases();
+      });
+      row.addEventListener('click', e=>{
+        const act = e.target.dataset.act; if(!act) return;
+        const l = phases(), i = l.findIndex(x=>x.id===id); if(i<0) return;
+        if(act === 'apply'){ applyPhase(l[i]); return; }
+        if(act === 'update'){ commitPhase(id); return; }
+        pushUndo();
+        if(act === 'del'){
+          l.splice(i,1);
+          if(activePhase === id){ activePhase = null; phaseDirty = false; }
+        } else if(act === 'dup'){
+          const c = JSON.parse(JSON.stringify(l[i]));
+          c.id = String(Date.now()); c.name = l[i].name + ' copy';
+          l.splice(i+1, 0, c);
+        } else if(act === 'up' && i > 0){
+          l.splice(i-1, 0, l.splice(i,1)[0]);
+        } else if(act === 'down' && i < l.length-1){
+          l.splice(i+1, 0, l.splice(i,1)[0]);
+        }
+        persist(); renderPhases();
+      });
+    });
+  }
+
+  $('#undoPhase').addEventListener('click', undoPhases);
+
+  $('#addPhase').addEventListener('click', ()=>{
+    const f = $('#phaseForm');
+    f.hidden = !f.hidden;
+    if(!f.hidden) $('#phaseName').focus();
+  });
+  $('#phaseCancel').addEventListener('click', ()=>{ $('#phaseForm').hidden = true; $('#phaseName').value=''; });
+  function submitPhase(){
+    const v = ($('#phaseName').value || '').trim();
+    if(!v){ $('#phaseName').focus(); return; }
+    savePhase(v);
+    $('#phaseName').value = ''; $('#phaseForm').hidden = true;
+  }
+  $('#phaseSave').addEventListener('click', submitPhase);
+  $('#phaseName').addEventListener('keydown', e=>{ if(e.key === 'Enter') submitPhase(); });
+
+  document.addEventListener('keydown', e=>{
+    if(e.target.matches('input, select, textarea')) return;
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    const n = parseInt(e.key, 10);
+    if(n >= 1 && n <= 9){
+      const ph = phases()[n-1];
+      if(ph){ e.preventDefault(); applyPhase(ph); }
+    }
+  });
+
+  /* ---------- share ----------
+     BAKED is filled in when a copy of this file is generated with a game plan
+     already inside it. It seeds a fresh board and never overwrites existing data. */
+  const BAKED = {"v":1,"app":"tactics-board","exported":"2026-09-11","rosters":{"7":[{"num":1,"name":"Sam"},{"num":2,"name":"Anna"},{"num":3,"name":"Eli"},{"num":"11","name":"Andrew"},{"num":"6","name":"Bennett"},{"num":"7","name":"Eve"},{"num":"9","name":"Chey"}],"9":[],"11":[]},"phases":{"7":[{"id":"1789155279538","name":"Goal kick","home":[{"x":0.8048391342163086,"y":18.4630184173584},{"x":4.956405162811279,"y":6.601686000823975},{"x":4.992720127105713,"y":30.340675354003906},{"x":18.298654556274414,"y":1.6818418502807617},{"x":13.385140419006348,"y":18.83249855041504},{"x":17.980815887451172,"y":33.30517578125},{"x":30.36188507080078,"y":18.47967529296875}],"away":[{"x":51.974999999999994,"y":18.5},{"x":43.45,"y":12.333333333333332},{"x":43.45,"y":24.666666666666664},{"x":27.775000000000002,"y":9.25},{"x":27.775000000000002,"y":18.5},{"x":27.775000000000002,"y":27.75},{"x":12.100000000000001,"y":18.5}],"ball":{"x":2.314075469970703,"y":18.486339569091797}},{"id":"1789155420994","name":"Defending","home":[{"x":0.8048391342163086,"y":18.4630184173584},{"x":8.094817161560059,"y":14.125212669372559},{"x":8.133797645568848,"y":22.431011199951172},{"x":4.906430721282959,"y":7.144744396209717},{"x":14.257366180419922,"y":16.612621307373047},{"x":5.806308746337891,"y":29.824270248413086},{"x":14.280354499816895,"y":21.797664642333984}],"away":[{"x":51.974999999999994,"y":18.5},{"x":32.67238235473633,"y":10.08858871459961},{"x":33.38935470581055,"y":25.63538932800293},{"x":15.291842460632324,"y":5.880051136016846},{"x":20.615148544311523,"y":18.609277725219727},{"x":14.620515823364258,"y":28.08248519897461},{"x":8.312374114990234,"y":20.140836715698242}],"ball":{"x":19.32979965209961,"y":18.391387939453125}},{"id":"1789155487115","name":"Kickoff","home":[{"x":3.025,"y":18.5},{"x":11.549999999999999,"y":12.333333333333332},{"x":11.549999999999999,"y":24.666666666666664},{"x":22.994279861450195,"y":3.7977712154388428},{"x":18.53353500366211,"y":18.53697967529297},{"x":23.225162506103516,"y":31.807266235351562},{"x":27.601613998413086,"y":18.6575870513916}],"away":[{"x":51.974999999999994,"y":18.5},{"x":43.45,"y":12.333333333333332},{"x":43.45,"y":24.666666666666664},{"x":27.775000000000002,"y":9.25},{"x":33.481971740722656,"y":14.632955551147461},{"x":27.775000000000002,"y":27.75},{"x":33.76249694824219,"y":21.155323028564453}],"ball":{"x":26.490177154541016,"y":18.760534286499023}},{"id":"1789155994562","name":"High Press (Goal Kick)","home":[{"x":3.025,"y":18.5},{"x":17.865873336791992,"y":13.41390609741211},{"x":17.531375885009766,"y":23.303569793701172},{"x":35.76748275756836,"y":8.318817138671875},{"x":28.940603256225586,"y":18.52898406982422},{"x":36.05600357055664,"y":30.262048721313477},{"x":42.4134521484375,"y":17.42354393005371}],"away":[{"x":51.974999999999994,"y":18.5},{"x":47.440242767333984,"y":7.705461025238037},{"x":49.438232421875,"y":29.619707107543945},{"x":37.1767692565918,"y":2.657681465148926},{"x":40.697322845458984,"y":18.935779571533203},{"x":36.978538513183594,"y":31.917211532592773},{"x":25.764543533325195,"y":18.290771484375}],"ball":{"x":50.87517166137695,"y":17.977596282958984}},{"id":"1789156237213","name":"High Press (In Play)","home":[{"x":3.025,"y":18.5},{"x":24.868330001831055,"y":16.777204513549805},{"x":17.531375885009766,"y":23.303569793701172},{"x":35.844444274902344,"y":4.025655746459961},{"x":38.13628387451172,"y":18.049894332885742},{"x":39.0721435546875,"y":27.71100616455078},{"x":42.47075653076172,"y":9.716776847839355}],"away":[{"x":51.974999999999994,"y":18.5},{"x":47.440242767333984,"y":7.705461025238037},{"x":49.438232421875,"y":29.619707107543945},{"x":37.1767692565918,"y":2.657681465148926},{"x":40.697322845458984,"y":18.935779571533203},{"x":36.978538513183594,"y":31.917211532592773},{"x":25.764543533325195,"y":18.290771484375}],"ball":{"x":45.915016174316406,"y":7.86604642868042}},{"id":"1789156413245","name":"Corner (Attacking)","home":[{"x":3.025,"y":18.5},{"x":27.213478088378906,"y":18.42470359802246},{"x":39.325347900390625,"y":18.396718978881836},{"x":50.930145263671875,"y":12.201519012451172},{"x":46.86286926269531,"y":22.63224220275879},{"x":54.86548614501953,"y":36.726112365722656},{"x":52.53333282470703,"y":19.07904052734375}],"away":[{"x":54.464691162109375,"y":19.043724060058594},{"x":53.257965087890625,"y":15.566150665283203},{"x":53.44187545776367,"y":23.204952239990234},{"x":46.97414779663086,"y":11.758076667785645},{"x":48.94015121459961,"y":16.261798858642578},{"x":46.39810562133789,"y":25.228261947631836},{"x":49.205684661865234,"y":21.13666534423828}],"ball":{"x":53.83800506591797,"y":35.71628952026367}},{"id":"1789163788667","name":"Kickoff (Defending)","home":[{"x":0.8048391342163086,"y":18.4630184173584},{"x":7.985206127166748,"y":12.550676345825195},{"x":7.898250102996826,"y":24.16280174255371},{"x":17.60833740234375,"y":5.58453369140625},{"x":21.196855545043945,"y":21.422853469848633},{"x":17.192880630493164,"y":29.295204162597656},{"x":21.15654182434082,"y":14.832854270935059}],"away":[{"x":51.974999999999994,"y":18.5},{"x":43.45,"y":12.333333333333332},{"x":43.45,"y":24.666666666666664},{"x":27.892467498779297,"y":5.600192546844482},{"x":34.3611946105957,"y":18.22480583190918},{"x":27.892133712768555,"y":31.61269760131836},{"x":28.14267349243164,"y":18.96976089477539}],"ball":{"x":28.63742446899414,"y":17.87931251525879}},{"id":"1789164436552","name":"Corner (Defending)","home":[{"x":0.8048391342163086,"y":18.4630184173584},{"x":0.2884337306022644,"y":15.70707893371582},{"x":0.4989938735961914,"y":21.601097106933594},{"x":3.298577308654785,"y":15.96095085144043},{"x":4.540615558624268,"y":19.33390998840332},{"x":4.780494213104248,"y":23.79665184020996},{"x":9.949545860290527,"y":21.114675521850586}],"away":[{"x":51.974999999999994,"y":18.5},{"x":29.290760040283203,"y":18.862150192260742},{"x":12.669169425964355,"y":20.165822982788086},{"x":2.910107374191284,"y":15.127705574035645},{"x":5.43616247177124,"y":18.840160369873047},{"x":0.4390242099761963,"y":36.83172607421875},{"x":5.582755088806152,"y":22.808486938476562}],"ball":{"x":1.3122490644454956,"y":36.0128059387207}},{"id":"1789164575936","name":"Throw-In (Middle)","home":[{"x":0.8048391342163086,"y":18.4630184173584},{"x":26.243968963623047,"y":0},{"x":8.031516075134277,"y":15.553489685058594},{"x":37.07249069213867,"y":4.867563247680664},{"x":20.666790008544922,"y":8.167226791381836},{"x":29.165822982788086,"y":19.40154266357422},{"x":36.29221725463867,"y":11.858359336853027}],"away":[{"x":51.974999999999994,"y":18.5},{"x":37.448299407958984,"y":5.801424026489258},{"x":40.37448501586914,"y":20.474332809448242},{"x":27.892467498779297,"y":5.600192546844482},{"x":32.694705963134766,"y":11.548516273498535},{"x":28.271276473999023,"y":25.398176193237305},{"x":23.98844337463379,"y":10.506710052490234}],"ball":{"x":26.40488624572754,"y":0.8469309210777283}},{"id":"1789165096651","name":"Throw-In (Attacking)","home":[{"x":0.8048391342163086,"y":18.4630184173584},{"x":29.6512451171875,"y":2.0583178997039795},{"x":18.13240623474121,"y":14.6682710647583},{"x":43.77776336669922,"y":0},{"x":39.346004486083984,"y":5.628844738006592},{"x":40.3348388671875,"y":18.07254981994629},{"x":49.72108840942383,"y":7.3323163986206055}],"away":[{"x":51.974999999999994,"y":18.5},{"x":48.34478759765625,"y":6.475749492645264},{"x":47.44257736206055,"y":16.74488639831543},{"x":40.59170913696289,"y":6.758273601531982},{"x":34.766990661621094,"y":12.839862823486328},{"x":28.271276473999023,"y":25.398176193237305},{"x":33.58258819580078,"y":2.6643447875976562}],"ball":{"x":43.874046325683594,"y":1.196753978729248}}],"9":[],"11":[]},"setups":[]};
+
+  function planPayload(){
+    return {v:1, app:'tactics-board', exported:new Date().toISOString().slice(0,10),
+            rosters:store.rosters, phases:store.phases, setups:store.setups};
+  }
+  function readPlan(txt){
+    const d = JSON.parse(txt);
+    if(!d || d.app !== 'tactics-board') throw new Error('not a game plan');
+    return d;
+  }
+  const freshId = (n) => String(Date.now() + n);
+
+  function mergePlan(d){
+    [7,9,11].forEach(sz=>{
+      (d.phases && d.phases[sz] || []).forEach((ph,i)=>{
+        store.phases[sz] = store.phases[sz] || [];
+        store.phases[sz].push(Object.assign({}, ph, {id:freshId(i + sz*100)}));
+      });
+      const mine = store.rosters[sz] || [], theirs = (d.rosters && d.rosters[sz]) || [];
+      theirs.forEach((r,i)=>{
+        if(!mine[i]) mine[i] = r;
+        else if(!mine[i].name && r.name) mine[i].name = r.name;
+      });
+      store.rosters[sz] = mine;
+    });
+    (d.setups || []).forEach((s,i)=> store.setups.push(Object.assign({}, s, {id:freshId(i+900)})));
+  }
+  function replacePlan(d){
+    store.rosters = Object.assign({7:[],9:[],11:[]}, d.rosters || {});
+    store.phases  = Object.assign({7:[],9:[],11:[]}, d.phases  || {});
+    store.setups  = d.setups || [];
+  }
+  function afterLoad(msg){
+    activePhase = null; phaseDirty = false; undoStack = null;
+    applyRoster(); persist();
+    render(); renderRoster(); renderPhases(); renderSetups();
+    $('#shareWrap').hidden = true; $('#shareBox').value = '';
+    toast(msg);
+  }
+
+  $('#exportBtn2').addEventListener('click', ()=>{
+    $('#shareWrap').hidden = false;
+    const box = $('#shareBox');
+    box.value = JSON.stringify(planPayload());
+    box.select();
+    $('#shareNote').textContent = 'Copy this code and send it. They paste it into Import.';
+  });
+  $('#importToggle').addEventListener('click', ()=>{
+    const w = $('#shareWrap');
+    w.hidden = !w.hidden;
+    if(!w.hidden){ $('#shareBox').value = ''; $('#shareBox').focus();
+      $('#shareNote').textContent = 'Paste a code, then merge it in or replace what you have.'; }
+  });
+  $('#copyShare').addEventListener('click', async ()=>{
+    const box = $('#shareBox'); box.select();
+    try{ await navigator.clipboard.writeText(box.value); toast('Code copied'); }
+    catch(err){ toast('Press Ctrl/Cmd+C to copy'); }
+  });
+  $('#downloadJson').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(planPayload(), null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'game-plan.json'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  });
+  $('#mergeIn').addEventListener('click', ()=>{
+    try{ mergePlan(readPlan($('#shareBox').value)); afterLoad('Game plan merged in'); }
+    catch(err){ toast("That code didn't read as a game plan"); }
+  });
+  $('#replaceIn').addEventListener('click', ()=>{
+    try{ replacePlan(readPlan($('#shareBox').value)); afterLoad('Game plan loaded'); }
+    catch(err){ toast("That code didn't read as a game plan"); }
+  });
+
+  /* ---------- controls ---------- */
+  function fillPresets(){
+    const sel = $('#preset');
+    sel.innerHTML = Object.keys(PRESETS[state.size]).map(k=>`<option value="${k}">${k}</option>`).join('');
+    if(!PRESETS[state.size][state.preset]) state.preset = Object.keys(PRESETS[state.size])[0];
+    sel.value = state.preset;
+  }
+  function setHint(){
+    $('#hint').textContent = state.mode === 'arrow'
+      ? 'Start a drag on a player or the ball to attach the arrow to it, then press Play. Tap an arrow to delete it.'
+      : 'Drag a player or the ball. Press 1-9 to jump to a saved phase.';
+    $('#gatherBtn').style.display = state.view === 'full' ? 'none' : '';
+  }
+
+  $('#sizeGrp').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    clearPlay();
+    state.size = +b.dataset.size;
+    [...e.currentTarget.children].forEach(c=>c.setAttribute('aria-pressed', c===b));
+    fillPresets(); applyPreset(false); state.arrows = []; activePhase = null; phaseDirty = false; undoStack = null;
+    render(); renderRoster(); renderPhases();
+  });
+  $('#preset').addEventListener('change', e=>{
+    clearPlay();
+    state.preset = e.target.value;
+    if(state.view !== 'full'){ state.view = 'full'; $('#view').value = 'full'; setHint(); }
+    applyPreset(true); activePhase = null; phaseDirty = false; render(); renderPhases();
+  });
+  $('#view').addEventListener('change', e=>{ state.view = e.target.value; setHint(); render(); });
+  $('#modeGrp').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    state.mode = b.dataset.mode;
+    [...e.currentTarget.children].forEach(c=>c.setAttribute('aria-pressed', c===b));
+    setHint(); render();
+  });
+  $('#arrowType').addEventListener('change', e=> state.arrowType = e.target.value);
+  $('#labels').addEventListener('change', e=>{ state.labels = e.target.value; render(); });
+  $('#oppBtn').addEventListener('click', e=>{
+    state.showOpp = !state.showOpp;
+    e.target.setAttribute('aria-pressed', state.showOpp);
+    e.target.textContent = state.showOpp ? 'Opponents on' : 'Opponents off';
+    render();
+  });
+  $('#playBtn').addEventListener('click', ()=>{
+    if(playing) return;
+    if(played) clearPlay(); else play();
+  });
+  $('#bakeBtn').addEventListener('click', bakeEndPositions);
+  $('#undoBtn').addEventListener('click', ()=>{ clearPlay(); state.arrows.pop(); render(); });
+  $('#clearBtn').addEventListener('click', ()=>{ clearPlay(); state.arrows = []; render(); });
+  $('#resetBtn').addEventListener('click', ()=>{ if(played) clearPlay(); applyPreset(true); render(); });
+  $('#gatherBtn').addEventListener('click', ()=>{
+    const b = bounds(), f = F(), pad = unit()*1.5;
+    [...state.home, ...(state.showOpp ? state.away : [])].forEach(p=>{
+      p.x = clamp(p.x, b.x0+pad, b.x1-pad); p.y = clamp(p.y, pad, f.W-pad);
+    });
+    state.ball.x = clamp(state.ball.x, b.x0+pad, b.x1-pad);
+    render();
+  });
+
+  const swWrap = $('#homeSw');
+  swWrap.innerHTML = KITS.map(c=>`<button class="sw" data-c="${c}" style="background:${c}" aria-label="Kit ${c}" aria-pressed="${c===state.homeKit}"></button>`).join('');
+  swWrap.addEventListener('click', e=>{
+    const b = e.target.closest('.sw'); if(!b) return;
+    state.homeKit = b.dataset.c;
+    [...swWrap.children].forEach(c=>c.setAttribute('aria-pressed', c===b));
+    render(); renderRoster();
+  });
+
+  /* ---------- storage ---------- */
+  const KEY = 'tactics:data';
+  const hasStorage = typeof window !== 'undefined' && window.storage &&
+                     typeof window.storage.get === 'function';
+  const isEmpty = () => !store.setups.length &&
+    [7,9,11].every(sz => !(store.phases[sz]||[]).length &&
+                         !(store.rosters[sz]||[]).some(r=>r && r.name));
+
+  async function load(){
+    if(!hasStorage){
+      if(BAKED){ replacePlan(BAKED); bakedSeeded = true; }
+      return;
+    }
+    try{
+      const r = await window.storage.get(KEY);
+      if(r && r.value){
+        const saved = JSON.parse(r.value);
+        store = Object.assign(store, saved);
+        store.phases = Object.assign({7:[],9:[],11:[]}, saved.phases || {});
+      }
+    }catch(err){ /* first run: nothing saved yet */ }
+    if(BAKED){
+      if(isEmpty()){ replacePlan(BAKED); bakedSeeded = true; }
+      else bakedPending = true;   // they already have their own work — offer it instead
+    }
+  }
+  let bakedPending = false, bakedSeeded = false;
+  let saveTimer;
+  function persist(){
+    clearTimeout(saveTimer);
+    if(!hasStorage) return;            // in-memory only for this session
+    saveTimer = setTimeout(async ()=>{
+      try{ await window.storage.set(KEY, JSON.stringify(store)); }
+      catch(err){ /* nowhere to save; the session still works */ }
+    }, 400);
+  }
+  function saveRoster(){
+    store.rosters[state.size] = state.home.map(p=>({num:p.num, name:p.name}));
+    persist();
+  }
+
+  function renderSetups(){
+    const el = $('#setups');
+    if(!store.setups.length){ el.innerHTML = '<p class="empty">Nothing saved yet. Set a shape, name it, and it will be here next time.</p>'; return; }
+    el.innerHTML = store.setups.map(s=>`
+      <div class="setup" data-id="${s.id}">
+        <div class="nmx">${esc(s.name)}<div class="meta">${s.data.size}v${s.data.size} · ${esc(s.data.preset)}</div></div>
+        <button class="mini" data-act="load">Load</button>
+        <button class="mini" data-act="del">Delete</button>
+      </div>`).join('');
+    el.querySelectorAll('.setup').forEach(row=>{
+      row.addEventListener('click', e=>{
+        const act = e.target.dataset.act; if(!act) return;
+        const id = row.dataset.id;
+        if(act === 'del'){ store.setups = store.setups.filter(s=>s.id!==id); persist(); renderSetups(); return; }
+        const s = store.setups.find(x=>x.id===id);
+        clearPlay();
+        Object.assign(state, JSON.parse(JSON.stringify(s.data)));
+        (state.arrows || []).forEach(normalizeArrow);
+        $('#view').value = state.view; $('#labels').value = state.labels;
+        $('#oppBtn').setAttribute('aria-pressed', state.showOpp);
+        $('#oppBtn').textContent = state.showOpp ? 'Opponents on' : 'Opponents off';
+        [...$('#sizeGrp').children].forEach(c=>c.setAttribute('aria-pressed', +c.dataset.size===state.size));
+        [...swWrap.children].forEach(c=>c.setAttribute('aria-pressed', c.dataset.c===state.homeKit));
+        fillPresets(); $('#preset').value = state.preset;
+        setHint(); render(); renderRoster();
+        toast('Loaded ' + s.name);
+      });
+    });
+  }
+  $('#saveBtn').addEventListener('click', ()=>{
+    const name = ($('#setupName').value || '').trim() || `${state.size}v${state.size} ${state.preset}`;
+    const data = JSON.parse(JSON.stringify({
+      size:state.size, preset:state.preset, view:state.view, showOpp:state.showOpp,
+      labels:state.labels, homeKit:state.homeKit, home:state.home, away:state.away,
+      ball:state.ball, arrows:state.arrows
+    }));
+    store.setups.unshift({id:String(Date.now()), name, data});
+    store.setups = store.setups.slice(0,30);
+    $('#setupName').value = '';
+    persist(); renderSetups(); toast('Saved ' + name);
+  });
+
+  function toast(msg){
+    const t = document.createElement('div');
+    t.className = 'toast'; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(), 1900);
+  }
+
+  /* ---------- export ---------- */
+  $('#exportBtn').addEventListener('click', ()=>{
+    const clone = svg.cloneNode(true);
+    clone.querySelector('#temp')?.remove();
+    const vb = viewBox().split(' ').map(Number);
+    const scale = 1800 / vb[2];
+    clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    clone.setAttribute('width', Math.round(vb[2]*scale));
+    clone.setAttribute('height', Math.round(vb[3]*scale));
+    const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    bg.setAttribute('x', vb[0]); bg.setAttribute('y', vb[1]);
+    bg.setAttribute('width', vb[2]); bg.setAttribute('height', vb[3]);
+    bg.setAttribute('fill', '#2f7d4f');
+    clone.insertBefore(bg, clone.childNodes[1]);
+    const str = new XMLSerializer().serializeToString(clone);
+    const img = new Image();
+    img.onload = ()=>{
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(vb[2]*scale); cv.height = Math.round(vb[3]*scale);
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#2f7d4f'; ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.drawImage(img,0,0,cv.width,cv.height);
+      cv.toBlob(blob=>{
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (($('#setupName').value||'').trim() || `lineup-${state.size}v${state.size}-${state.preset}`) + '.png';
+        a.click();
+        setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      }, 'image/png');
+    };
+    img.onerror = ()=> toast('Image export failed — try a screenshot');
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(str);
+  });
+
+  /* ---------- boot ---------- */
+  (async function(){
+    await load();
+    // Open on whichever team size actually has phases (matters for a shared plan).
+    const best = [7,9,11].reduce((a,b)=> ((store.phases[b]||[]).length > (store.phases[a]||[]).length ? b : a), 11);
+    if(!(store.phases[state.size]||[]).length && (store.phases[best]||[]).length){
+      state.size = best;
+      [...$('#sizeGrp').children].forEach(c=>c.setAttribute('aria-pressed', +c.dataset.size===best));
+    }
+    fillPresets();
+    applyPreset(false);
+    setHint();
+    // A baked-in plan lands on its first phase rather than a generic formation.
+    const first = (store.phases[state.size]||[])[0];
+    if(BAKED && bakedSeeded && first){
+      state.home.forEach((p,i)=>{ if(first.home[i]){ p.x = first.home[i].x; p.y = first.home[i].y; }});
+      state.away.forEach((p,i)=>{ if(first.away[i]){ p.x = first.away[i].x; p.y = first.away[i].y; }});
+      state.ball = {x:first.ball.x, y:first.ball.y};
+      activePhase = first.id;
+    }
+    render();
+    renderRoster();
+    renderPhases();
+    renderSetups();
+    if(bakedPending){
+      $('#shareNote').innerHTML = 'This copy came with a shared game plan. ' +
+        '<button class="mini" id="loadBaked">Load it</button>';
+      $('#loadBaked').addEventListener('click', ()=>{
+        mergePlan(BAKED); afterLoad('Shared game plan added');
+        $('#shareNote').textContent = 'Export gives you a code to paste, or a file to send.';
+      });
+    }
+  })();
+})();
+</script>
+
+</body>
+</html>
